@@ -36,10 +36,20 @@
         #btn-restart:hover { transform: scale(1.05); }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 </head>
 <body>
     <div id="game-container">
         <header id="ui-layer">
+<div id="multiplayer-ui" style="position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 20; background: rgba(0,0,0,0.8); padding: 10px 16px; border-radius: 12px; color: #fff; display: flex; gap: 10px; align-items: center;">
+    <button id="btn-host" onclick="game.hostGame()">Create Room</button>
+    <span>OR</span>
+    <input type="text" id="join-code-input" placeholder="Enter Room ID" style="padding: 4px 8px; border-radius: 4px; border: none; width: 120px;">
+    <button id="btn-join" onclick="game.joinGame()">Join Room</button>
+    <div id="room-status" style="font-size: 0.8rem; color: #ffca28; margin-left: 10px;"></div>
+</div>
+            
             <!-- Player 1 HUD -->
             <div class="hud-panel">
                 <div class="score-badge p1-badge">🐱 Orange: <span id="p1-score">0</span></div>
@@ -352,6 +362,54 @@
 
             // Spawn power-ups periodically
             setInterval(() => this.spawnRandomPowerUp(), 6500);
+
+            // Add to constructor()
+this.peer = null;
+this.conn = null;
+this.isHost = false;
+this.myPlayerNum = 1; // Default to P1 local
+
+hostGame() {
+    // Generate a short 5-character Room ID
+    const roomCode = Math.random().toString(36).substring(2, 7).toUpperCase();
+    this.peer = new Peer(roomCode);
+    
+    this.peer.on('open', (id) => {
+        this.isHost = true;
+        this.myPlayerNum = 1;
+        document.getElementById('room-status').innerText = `Room ID: ${id} (Waiting for Player 2...)`;
+    });
+
+    this.peer.on('connection', (c) => {
+        this.conn = c;
+        document.getElementById('room-status').innerText = `Player 2 Connected!`;
+        this.setupConnectionListeners();
+    });
+}
+
+joinGame() {
+    const code = document.getElementById('join-code-input').value.trim().toUpperCase();
+    if (!code) return;
+
+    this.peer = new Peer();
+    this.peer.on('open', () => {
+        this.isHost = false;
+        this.myPlayerNum = 2;
+        this.conn = this.peer.connect(code);
+        document.getElementById('room-status').innerText = `Connecting to ${code}...`;
+        this.setupConnectionListeners();
+    });
+}
+
+setupConnectionListeners() {
+    this.conn.on('open', () => {
+        document.getElementById('room-status').innerText = `Game Connected!`;
+    });
+
+    this.conn.on('data', (data) => {
+        this.handleNetworkData(data);
+    });
+}
 
             this.animate();
         }
@@ -843,6 +901,47 @@
         animate() {
             requestAnimationFrame(() => this.animate());
 
+// Add to your animate() loop to broadcast player position every frame:
+if (this.conn && this.conn.open) {
+    if (this.myPlayerNum === 1) {
+        this.conn.send({
+            type: 'POS_UPDATE',
+            player: 1,
+            x: this.p1Cat.position.x,
+            z: this.p1Cat.position.z,
+            rotY: this.p1Cat.rotation.y
+        });
+    } else {
+        this.conn.send({
+            type: 'POS_UPDATE',
+            player: 2,
+            x: this.p2Cat.position.x,
+            z: this.p2Cat.position.z,
+            rotY: this.p2Cat.rotation.y
+        });
+    }
+}
+
+// Receive and apply network packets
+handleNetworkData(data) {
+    if (data.type === 'POS_UPDATE') {
+        if (data.player === 1 && this.myPlayerNum === 2) {
+            this.p1Cat.position.x = data.x;
+            this.p1Cat.position.z = data.z;
+            this.p1Cat.rotation.y = data.rotY;
+        } else if (data.player === 2 && this.myPlayerNum === 1) {
+            this.p2Cat.position.x = data.x;
+            this.p2Cat.position.z = data.z;
+            this.p2Cat.rotation.y = data.rotY;
+        }
+    } else if (data.type === 'USE_ABILITY') {
+        if (data.ability === 'PAW') this.useSuperPaw(data.player);
+        if (data.ability === 'LEAP') this.usePounceLeap(data.player);
+        if (data.ability === 'HISS') this.useFrighteningHiss(data.player);
+    }
+}
+
+            
             if (this.isGameOver) {
                 this.renderer.render(this.scene, this.camera);
                 return;
