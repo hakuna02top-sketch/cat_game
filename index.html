@@ -3,14 +3,23 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>2-Player Cat Game .IO — All Power-Ups & Abilities</title>
+    <title>2-Player Cat Game .IO — Online Multiplayer</title>
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
         body { background: #121212; display: flex; justify-content: center; align-items: center; min-height: 100vh; font-family: 'Segoe UI', Tahoma, sans-serif; overflow: hidden; }
         #game-container { width: 100vw; height: 100vh; max-width: 1000px; max-height: 700px; aspect-ratio: 16 / 9; background: #fff3e0; position: relative; overflow: hidden; border-radius: 12px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
         
+        /* Online Lobby Bar */
+        #multiplayer-ui { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 999; background: rgba(0,0,0,0.85); padding: 8px 16px; border-radius: 12px; color: #fff; display: flex; gap: 10px; align-items: center; pointer-events: auto; box-shadow: 0 4px 12px rgba(0,0,0,0.4); }
+        #multiplayer-ui button { background: #ff9800; color: #fff; border: none; padding: 6px 14px; border-radius: 8px; font-weight: bold; cursor: pointer; transition: background 0.2s; }
+        #multiplayer-ui button:hover { background: #f57c00; }
+        #btn-join { background: #2e7d32 !important; }
+        #btn-join:hover { background: #1b5e20 !important; }
+        #join-code-input { padding: 6px 8px; border-radius: 6px; border: 1px solid #ccc; width: 100px; text-transform: uppercase; font-weight: bold; }
+        #room-status { font-size: 0.8rem; color: #ffca28; font-weight: bold; }
+
         /* HUD UI Header */
-        #ui-layer { position: absolute; top: 12px; left: 0; width: 100%; display: flex; justify-content: space-between; align-items: flex-start; padding: 0 16px; z-index: 10; pointer-events: none; }
+        #ui-layer { position: absolute; top: 55px; left: 0; width: 100%; display: flex; justify-content: space-between; align-items: flex-start; padding: 0 16px; z-index: 10; pointer-events: none; }
         .hud-panel { display: flex; flex-direction: column; gap: 4px; width: 290px; }
         .score-badge { background: rgba(255, 255, 255, 0.95); padding: 6px 14px; border-radius: 18px; font-weight: bold; font-size: 0.9rem; box-shadow: 0 4px 10px rgba(0,0,0,0.15); display: flex; align-items: center; justify-content: space-between; }
         .p1-badge { color: #e65100; border: 2px solid #ff9800; }
@@ -36,23 +45,23 @@
         #btn-restart:hover { transform: scale(1.05); }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
 </head>
 <body>
     <div id="game-container">
+        <!-- Online Lobby Bar -->
+        <div id="multiplayer-ui">
+            <button id="btn-host">Create Room</button>
+            <span>OR</span>
+            <input type="text" id="join-code-input" placeholder="Room ID">
+            <button id="btn-join">Join Room</button>
+            <div id="room-status">Solo Mode</div>
+        </div>
+
         <header id="ui-layer">
-<div id="multiplayer-ui" style="position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 20; background: rgba(0,0,0,0.8); padding: 10px 16px; border-radius: 12px; color: #fff; display: flex; gap: 10px; align-items: center;">
-    <button id="btn-host" onclick="game.hostGame()">Create Room</button>
-    <span>OR</span>
-    <input type="text" id="join-code-input" placeholder="Enter Room ID" style="padding: 4px 8px; border-radius: 4px; border: none; width: 120px;">
-    <button id="btn-join" onclick="game.joinGame()">Join Room</button>
-    <div id="room-status" style="font-size: 0.8rem; color: #ffca28; margin-left: 10px;"></div>
-</div>
-            
             <!-- Player 1 HUD -->
             <div class="hud-panel">
-                <div class="score-badge p1-badge">🐱 Orange: <span id="p1-score">0</span></div>
+                <div class="score-badge p1-badge">🐱 Orange (P1): <span id="p1-score">0</span></div>
                 <div class="ability-row">
                     <div class="ability-badge">
                         <span>🐾 Paw [E]</span>
@@ -74,7 +83,7 @@
 
             <!-- Player 2 HUD -->
             <div class="hud-panel">
-                <div class="score-badge p2-badge">🐱 Tabby: <span id="p2-score">0</span></div>
+                <div class="score-badge p2-badge">🐱 Tabby (P2): <span id="p2-score">0</span></div>
                 <div class="ability-row">
                     <div class="ability-badge">
                         <span>🐾 Paw [Enter]</span>
@@ -96,8 +105,8 @@
         <div id="canvas-container"></div>
 
         <div id="controls-hint">
-            <span>Orange: Move WASD | Paw: E | Leap: Q | Hiss: F</span>
-            <span>Tabby: Move Arrows | Paw: Enter | Leap: R | Hiss: H</span>
+            <span>P1 (Orange): Move WASD | Paw: E | Leap: Q | Hiss: F</span>
+            <span>P2 (Tabby): Move Arrows | Paw: Enter | Leap: R | Hiss: H</span>
         </div>
 
         <!-- Victory Modal -->
@@ -318,12 +327,18 @@
         }
     }
 
-    class LocalMultiplayerCatGame {
+    class OnlineCatGame {
         constructor() {
             this.WIN_TARGET = 100;
             this.p1Score = 0;
             this.p2Score = 0;
             this.isGameOver = false;
+
+            // Networking State
+            this.peer = null;
+            this.conn = null;
+            this.isHost = false;
+            this.myPlayerNum = 1; // Default Local / P1
 
             // Stun & Trapped Timers
             this.p1StunnedUntil = 0;
@@ -343,7 +358,7 @@
             this.p1LeapState = null;
             this.p2LeapState = null;
 
-            // Active Powerup State: { type: 'SHIELD'|'CATNIP'|'MAGNET', expiresAt: number }
+            // Active Powerup State
             this.p1Powerup = null;
             this.p2Powerup = null;
 
@@ -360,58 +375,74 @@
             this.spawnMice(20);
             this.initInputListeners();
 
-            // Spawn power-ups periodically
             setInterval(() => this.spawnRandomPowerUp(), 6500);
-
-            // Add to constructor()
-this.peer = null;
-this.conn = null;
-this.isHost = false;
-this.myPlayerNum = 1; // Default to P1 local
-
-hostGame() {
-    // Generate a short 5-character Room ID
-    const roomCode = Math.random().toString(36).substring(2, 7).toUpperCase();
-    this.peer = new Peer(roomCode);
-    
-    this.peer.on('open', (id) => {
-        this.isHost = true;
-        this.myPlayerNum = 1;
-        document.getElementById('room-status').innerText = `Room ID: ${id} (Waiting for Player 2...)`;
-    });
-
-    this.peer.on('connection', (c) => {
-        this.conn = c;
-        document.getElementById('room-status').innerText = `Player 2 Connected!`;
-        this.setupConnectionListeners();
-    });
-}
-
-joinGame() {
-    const code = document.getElementById('join-code-input').value.trim().toUpperCase();
-    if (!code) return;
-
-    this.peer = new Peer();
-    this.peer.on('open', () => {
-        this.isHost = false;
-        this.myPlayerNum = 2;
-        this.conn = this.peer.connect(code);
-        document.getElementById('room-status').innerText = `Connecting to ${code}...`;
-        this.setupConnectionListeners();
-    });
-}
-
-setupConnectionListeners() {
-    this.conn.on('open', () => {
-        document.getElementById('room-status').innerText = `Game Connected!`;
-    });
-
-    this.conn.on('data', (data) => {
-        this.handleNetworkData(data);
-    });
-}
-
             this.animate();
+        }
+
+        // --- PEERJS MULTIPLAYER ---
+        hostGame() {
+            const roomCode = Math.random().toString(36).substring(2, 7).toUpperCase();
+            this.peer = new Peer(roomCode);
+
+            this.peer.on('open', (id) => {
+                this.isHost = true;
+                this.myPlayerNum = 1;
+                document.getElementById('room-status').innerText = `ID: ${id} (Waiting P2...)`;
+            });
+
+            this.peer.on('connection', (c) => {
+                this.conn = c;
+                document.getElementById('room-status').innerText = `Player 2 Connected!`;
+                this.setupConnectionListeners();
+            });
+        }
+
+        joinGame() {
+            const code = document.getElementById('join-code-input').value.trim().toUpperCase();
+            if (!code) return;
+
+            this.peer = new Peer();
+            this.peer.on('open', () => {
+                this.isHost = false;
+                this.myPlayerNum = 2;
+                this.conn = this.peer.connect(code);
+                document.getElementById('room-status').innerText = `Connecting to ${code}...`;
+                this.setupConnectionListeners();
+            });
+        }
+
+        setupConnectionListeners() {
+            this.conn.on('open', () => {
+                document.getElementById('room-status').innerText = `Online Connected!`;
+            });
+
+            this.conn.on('data', (data) => {
+                this.handleNetworkData(data);
+            });
+        }
+
+        sendNetworkData(data) {
+            if (this.conn && this.conn.open) {
+                this.conn.send(data);
+            }
+        }
+
+        handleNetworkData(data) {
+            if (data.type === 'POS_UPDATE') {
+                if (data.player === 1 && this.myPlayerNum === 2) {
+                    this.p1Cat.position.x = data.x;
+                    this.p1Cat.position.z = data.z;
+                    this.p1Cat.rotation.y = data.rotY;
+                } else if (data.player === 2 && this.myPlayerNum === 1) {
+                    this.p2Cat.position.x = data.x;
+                    this.p2Cat.position.z = data.z;
+                    this.p2Cat.rotation.y = data.rotY;
+                }
+            } else if (data.type === 'ABILITY') {
+                if (data.ability === 'PAW') this.useSuperPaw(data.player, false);
+                if (data.ability === 'LEAP') this.usePounceLeap(data.player, false);
+                if (data.ability === 'HISS') this.useFrighteningHiss(data.player, false);
+            }
         }
 
         initScene() {
@@ -458,13 +489,11 @@ setupConnectionListeners() {
             const blackMat = new THREE.MeshStandardMaterial({ color: 0x212121 });
             const stripeMat = new THREE.MeshStandardMaterial({ color: 0x4e342e, flatShading: true });
 
-            // Body
             const body = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.8, 1.5), mainMat);
             body.position.y = 0.5;
             body.castShadow = true;
             catGroup.add(body);
 
-            // Tabby Stripes
             if (isTabby) {
                 for (let zOffset of [-0.4, 0, 0.4]) {
                     const stripe = new THREE.Mesh(new THREE.BoxGeometry(1.22, 0.82, 0.18), stripeMat);
@@ -473,32 +502,27 @@ setupConnectionListeners() {
                 }
             }
 
-            // White Belly
             const belly = new THREE.Mesh(new THREE.BoxGeometry(1.02, 0.35, 1.1), whiteMat);
             belly.position.set(0, 0.32, 0);
             catGroup.add(belly);
 
-            // Head
             const head = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.75, 0.8), mainMat);
             head.position.set(0, 0.85, -0.8);
             head.castShadow = true;
             catGroup.add(head);
 
-            // Snout & Nose
             const snout = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.25, 0.2), whiteMat);
             snout.position.set(0, 0.72, -1.25);
             const nose = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.1, 0.05), pinkMat);
             nose.position.set(0, 0.8, -1.36);
             catGroup.add(snout, nose);
 
-            // Eyes
             const eyeL = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.15, 0.05), blackMat);
             eyeL.position.set(-0.25, 0.92, -1.22);
             const eyeR = eyeL.clone();
             eyeR.position.x = 0.25;
             catGroup.add(eyeL, eyeR);
 
-            // Ears
             const earGeo = new THREE.ConeGeometry(0.18, 0.35, 4);
             const earL = new THREE.Mesh(earGeo, mainMat);
             earL.position.set(-0.3, 1.35, -0.8);
@@ -506,7 +530,6 @@ setupConnectionListeners() {
             earR.position.x = 0.3;
             catGroup.add(earL, earR);
 
-            // Tail
             const tailGroup = new THREE.Group();
             const tailMesh = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.12, 0.9, 8), mainMat);
             tailMesh.position.set(0, 0.45, 0);
@@ -516,7 +539,6 @@ setupConnectionListeners() {
             catGroup.add(tailGroup);
             catGroup.userData.tail = tailGroup;
 
-            // Super Paw Claws
             const clawGroup = new THREE.Group();
             const clawMat = new THREE.MeshBasicMaterial({ color: 0x00e676 });
             for (let x of [-0.3, -0.1, 0.1, 0.3]) {
@@ -528,7 +550,6 @@ setupConnectionListeners() {
             catGroup.add(clawGroup);
             catGroup.userData.claws = clawGroup;
 
-            // Bubble Shield Mesh Overlay
             const shieldGeo = new THREE.SphereGeometry(1.3, 16, 16);
             const shieldMat = new THREE.MeshBasicMaterial({ color: 0x29b6f6, transparent: true, opacity: 0.35, wireframe: true });
             const shieldMesh = new THREE.Mesh(shieldGeo, shieldMat);
@@ -537,7 +558,6 @@ setupConnectionListeners() {
             catGroup.add(shieldMesh);
             catGroup.userData.shield = shieldMesh;
 
-            // Cage Mesh Attachment (3D Metal Cage)
             const cageGroup = new THREE.Group();
             const barMat = new THREE.MeshStandardMaterial({ color: 0x37474f, metalness: 0.8, roughness: 0.2 });
             const topPlate = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.1, 2.0), barMat);
@@ -562,12 +582,10 @@ setupConnectionListeners() {
         }
 
         createPlayers() {
-            // Player 1: Orange Cat
             this.p1Cat = this.createCatMesh(0xff9800, false);
             this.p1Cat.position.set(-6, 0, 0);
             this.scene.add(this.p1Cat);
 
-            // Player 2: Tabby Cat
             this.p2Cat = this.createCatMesh(0x8d6e63, true);
             this.p2Cat.position.set(6, 0, 0);
             this.scene.add(this.p2Cat);
@@ -605,11 +623,11 @@ setupConnectionListeners() {
             const types = ['SHIELD', 'CATNIP', 'MAGNET', 'CAGE', 'TUNA'];
             const chosenType = types[Math.floor(Math.random() * types.length)];
 
-            let color = 0x29b6f6; // Shield Blue
-            if (chosenType === 'CATNIP') color = 0x76ff03; // Speed Green
-            if (chosenType === 'MAGNET') color = 0xe91e63; // Magnet Pink
-            if (chosenType === 'CAGE') color = 0x78909c;   // Cage Gray
-            if (chosenType === 'TUNA') color = 0xffd54f;   // Tuna Gold
+            let color = 0x29b6f6;
+            if (chosenType === 'CATNIP') color = 0x76ff03;
+            if (chosenType === 'MAGNET') color = 0xe91e63;
+            if (chosenType === 'CAGE') color = 0x78909c;
+            if (chosenType === 'TUNA') color = 0xffd54f;
 
             const boxGeo = new THREE.BoxGeometry(0.8, 0.8, 0.8);
             const boxMat = new THREE.MeshStandardMaterial({ color: color, metalness: 0.4, roughness: 0.3 });
@@ -630,14 +648,18 @@ setupConnectionListeners() {
                 if (this.isGameOver) return;
 
                 // Player 1 Abilities
-                if (e.code === 'KeyE') this.useSuperPaw(1);
-                if (e.code === 'KeyQ') this.usePounceLeap(1);
-                if (e.code === 'KeyF') this.useFrighteningHiss(1);
+                if (this.myPlayerNum === 1 || !this.conn) {
+                    if (e.code === 'KeyE') this.useSuperPaw(1, true);
+                    if (e.code === 'KeyQ') this.usePounceLeap(1, true);
+                    if (e.code === 'KeyF') this.useFrighteningHiss(1, true);
+                }
 
                 // Player 2 Abilities
-                if (e.code === 'Enter' || e.code === 'Numpad0') this.useSuperPaw(2);
-                if (e.code === 'KeyR' || e.code === 'ShiftRight') this.usePounceLeap(2);
-                if (e.code === 'KeyH') this.useFrighteningHiss(2);
+                if (this.myPlayerNum === 2 || !this.conn) {
+                    if (e.code === 'Enter' || e.code === 'Numpad0') this.useSuperPaw(2, true);
+                    if (e.code === 'KeyR' || e.code === 'ShiftRight') this.usePounceLeap(2, true);
+                    if (e.code === 'KeyH') this.useFrighteningHiss(2, true);
+                }
             });
 
             window.addEventListener('keyup', (e) => {
@@ -652,10 +674,10 @@ setupConnectionListeners() {
             });
         }
 
-        // --- ABILITIES & POWER-UPS ---
-
-        useSuperPaw(playerNum) {
+        useSuperPaw(playerNum, broadcast = true) {
             const now = Date.now();
+            if (broadcast) this.sendNetworkData({ type: 'ABILITY', ability: 'PAW', player: playerNum });
+
             if (playerNum === 1) {
                 if (now < this.p1PawCdUntil || now < this.p1StunnedUntil || now < this.p1TrappedInCageUntil) return;
                 this.p1PawCdUntil = now + 4000;
@@ -665,10 +687,10 @@ setupConnectionListeners() {
 
                 if (this.p1Cat.position.distanceTo(this.p2Cat.position) < 2.8) {
                     if (this.p2Powerup && this.p2Powerup.type === 'SHIELD') {
-                        this.p2Powerup = null; // Shield absorbs scratch
+                        this.p2Powerup = null;
                     } else {
                         this.p2StunnedUntil = now + 1000;
-                        this.p2Cat.position.y = 2.2; // Knock-up!
+                        this.p2Cat.position.y = 2.2;
                     }
                 }
             } else {
@@ -680,17 +702,19 @@ setupConnectionListeners() {
 
                 if (this.p2Cat.position.distanceTo(this.p1Cat.position) < 2.8) {
                     if (this.p1Powerup && this.p1Powerup.type === 'SHIELD') {
-                        this.p1Powerup = null; // Shield absorbs scratch
+                        this.p1Powerup = null;
                     } else {
                         this.p1StunnedUntil = now + 1000;
-                        this.p1Cat.position.y = 2.2; // Knock-up!
+                        this.p1Cat.position.y = 2.2;
                     }
                 }
             }
         }
 
-        usePounceLeap(playerNum) {
+        usePounceLeap(playerNum, broadcast = true) {
             const now = Date.now();
+            if (broadcast) this.sendNetworkData({ type: 'ABILITY', ability: 'LEAP', player: playerNum });
+
             if (playerNum === 1) {
                 if (now < this.p1LeapCdUntil || now < this.p1StunnedUntil || now < this.p1TrappedInCageUntil) return;
                 this.p1LeapCdUntil = now + 5000;
@@ -710,8 +734,10 @@ setupConnectionListeners() {
             }
         }
 
-        useFrighteningHiss(playerNum) {
+        useFrighteningHiss(playerNum, broadcast = true) {
             const now = Date.now();
+            if (broadcast) this.sendNetworkData({ type: 'ABILITY', ability: 'HISS', player: playerNum });
+
             if (playerNum === 1) {
                 if (now < this.p1HissCdUntil || now < this.p1StunnedUntil || now < this.p1TrappedInCageUntil) return;
                 this.p1HissCdUntil = now + 6000;
@@ -759,7 +785,7 @@ setupConnectionListeners() {
             const now = Date.now();
             if (targetNum === 2) {
                 if (this.p2Powerup && this.p2Powerup.type === 'SHIELD') {
-                    this.p2Powerup = null; // Shield blocks cage trap
+                    this.p2Powerup = null;
                     return;
                 }
                 this.audio.playCryingMeow();
@@ -767,7 +793,7 @@ setupConnectionListeners() {
                 this.p2Cat.userData.cage.visible = true;
             } else {
                 if (this.p1Powerup && this.p1Powerup.type === 'SHIELD') {
-                    this.p1Powerup = null; // Shield blocks cage trap
+                    this.p1Powerup = null;
                     return;
                 }
                 this.audio.playCryingMeow();
@@ -795,7 +821,7 @@ setupConnectionListeners() {
                 return;
             }
 
-            const expiresAt = Date.now() + 6000; // 6 seconds duration for active buffs
+            const expiresAt = Date.now() + 6000;
             if (playerNum === 1) this.p1Powerup = { type, expiresAt };
             else this.p2Powerup = { type, expiresAt };
         }
@@ -848,7 +874,6 @@ setupConnectionListeners() {
         }
 
         updateHUD(now) {
-            // P1 Ability CDs
             const p1PawElem = document.getElementById('p1-paw-cd');
             p1PawElem.innerText = (now < this.p1PawCdUntil) ? `${((this.p1PawCdUntil - now)/1000).toFixed(1)}s` : 'READY';
             p1PawElem.className = `status-tag ${(now < this.p1PawCdUntil) ? 'cooldown' : ''}`;
@@ -861,7 +886,6 @@ setupConnectionListeners() {
             p1HissElem.innerText = (now < this.p1HissCdUntil) ? `${((this.p1HissCdUntil - now)/1000).toFixed(1)}s` : 'READY';
             p1HissElem.className = `status-tag ${(now < this.p1HissCdUntil) ? 'cooldown' : ''}`;
 
-            // P2 Ability CDs
             const p2PawElem = document.getElementById('p2-paw-cd');
             p2PawElem.innerText = (now < this.p2PawCdUntil) ? `${((this.p2PawCdUntil - now)/1000).toFixed(1)}s` : 'READY';
             p2PawElem.className = `status-tag ${(now < this.p2PawCdUntil) ? 'cooldown' : ''}`;
@@ -874,7 +898,6 @@ setupConnectionListeners() {
             p2HissElem.innerText = (now < this.p2HissCdUntil) ? `${((this.p2HissCdUntil - now)/1000).toFixed(1)}s` : 'READY';
             p2HissElem.className = `status-tag ${(now < this.p2HissCdUntil) ? 'cooldown' : ''}`;
 
-            // Powerup HUD Badges
             const p1Tag = document.getElementById('p1-powerup-tag');
             if (this.p1Powerup && now < this.p1Powerup.expiresAt) {
                 p1Tag.style.display = 'block';
@@ -893,7 +916,6 @@ setupConnectionListeners() {
                 if (this.p2Powerup && this.p2Powerup.type !== 'SHIELD') this.p2Powerup = null;
             }
 
-            // Shield Visual Overlays
             this.p1Cat.userData.shield.visible = !!(this.p1Powerup && this.p1Powerup.type === 'SHIELD');
             this.p2Cat.userData.shield.visible = !!(this.p2Powerup && this.p2Powerup.type === 'SHIELD');
         }
@@ -901,47 +923,6 @@ setupConnectionListeners() {
         animate() {
             requestAnimationFrame(() => this.animate());
 
-// Add to your animate() loop to broadcast player position every frame:
-if (this.conn && this.conn.open) {
-    if (this.myPlayerNum === 1) {
-        this.conn.send({
-            type: 'POS_UPDATE',
-            player: 1,
-            x: this.p1Cat.position.x,
-            z: this.p1Cat.position.z,
-            rotY: this.p1Cat.rotation.y
-        });
-    } else {
-        this.conn.send({
-            type: 'POS_UPDATE',
-            player: 2,
-            x: this.p2Cat.position.x,
-            z: this.p2Cat.position.z,
-            rotY: this.p2Cat.rotation.y
-        });
-    }
-}
-
-// Receive and apply network packets
-handleNetworkData(data) {
-    if (data.type === 'POS_UPDATE') {
-        if (data.player === 1 && this.myPlayerNum === 2) {
-            this.p1Cat.position.x = data.x;
-            this.p1Cat.position.z = data.z;
-            this.p1Cat.rotation.y = data.rotY;
-        } else if (data.player === 2 && this.myPlayerNum === 1) {
-            this.p2Cat.position.x = data.x;
-            this.p2Cat.position.z = data.z;
-            this.p2Cat.rotation.y = data.rotY;
-        }
-    } else if (data.type === 'USE_ABILITY') {
-        if (data.ability === 'PAW') this.useSuperPaw(data.player);
-        if (data.ability === 'LEAP') this.usePounceLeap(data.player);
-        if (data.ability === 'HISS') this.useFrighteningHiss(data.player);
-    }
-}
-
-            
             if (this.isGameOver) {
                 this.renderer.render(this.scene, this.camera);
                 return;
@@ -951,7 +932,21 @@ handleNetworkData(data) {
             this.updateHUD(now);
             const time = now * 0.005;
 
-            // Catnip Speed Multipliers
+            // Broadcast Position across network
+            if (this.conn && this.conn.open) {
+                if (this.myPlayerNum === 1) {
+                    this.sendNetworkData({
+                        type: 'POS_UPDATE', player: 1,
+                        x: this.p1Cat.position.x, z: this.p1Cat.position.z, rotY: this.p1Cat.rotation.y
+                    });
+                } else {
+                    this.sendNetworkData({
+                        type: 'POS_UPDATE', player: 2,
+                        x: this.p2Cat.position.x, z: this.p2Cat.position.z, rotY: this.p2Cat.rotation.y
+                    });
+                }
+            }
+
             const p1Speed = (this.p1Powerup && this.p1Powerup.type === 'CATNIP') ? 0.28 : 0.17;
             const p2Speed = (this.p2Powerup && this.p2Powerup.type === 'CATNIP') ? 0.28 : 0.17;
 
@@ -960,11 +955,9 @@ handleNetworkData(data) {
             const p1IsStunned = now < this.p1StunnedUntil;
             const p2IsStunned = now < this.p2StunnedUntil;
 
-            // Hide cages if expired
             if (!p1Trapped) this.p1Cat.userData.cage.visible = false;
             if (!p2Trapped) this.p2Cat.userData.cage.visible = false;
 
-            // --- Crying Tears & Cage Shake ---
             if (p1Trapped) {
                 this.p1Cat.rotation.z = Math.sin(now * 0.04) * 0.15;
                 if (Math.random() < 0.25) this.spawnTearParticles(this.p1Cat.position);
@@ -974,7 +967,6 @@ handleNetworkData(data) {
                 if (Math.random() < 0.25) this.spawnTearParticles(this.p2Cat.position);
             }
 
-            // Animate Tear Particles
             this.tearParticles.forEach((tear, idx) => {
                 tear.position.y += tear.userData.vy;
                 tear.userData.life -= 0.03;
@@ -984,7 +976,6 @@ handleNetworkData(data) {
                 }
             });
 
-            // Animate Shockwaves
             this.shockwaves.forEach((sw, idx) => {
                 sw.scale += 0.25;
                 sw.mesh.scale.set(sw.scale, sw.scale, sw.scale);
@@ -996,7 +987,7 @@ handleNetworkData(data) {
                 }
             });
 
-            // --- Bumping Collisions ---
+            // Bumping Collisions
             const p1Radius = 0.7 * this.p1Cat.scale.x;
             const p2Radius = 0.7 * this.p2Cat.scale.x;
             if (this.p1Cat.position.distanceTo(this.p2Cat.position) < (p1Radius + p2Radius) && !p1IsStunned && !p2IsStunned && !p1Trapped && !p2Trapped) {
@@ -1015,7 +1006,7 @@ handleNetworkData(data) {
                 this.p2Cat.position.addScaledVector(bumpDir, -1.0);
             }
 
-            // --- Pounce Leap Movement ---
+            // Pounce Leap Movement
             if (this.p1LeapState) {
                 this.p1LeapState.progress += 0.06;
                 this.p1Cat.position.x += this.p1LeapState.vx;
@@ -1040,53 +1031,57 @@ handleNetworkData(data) {
                 }
             }
 
-            // --- Player 1 Movement & Stun Handling ---
-            if (p1IsStunned) {
-                this.p1Cat.rotation.y += 0.35;
-                if (this.p1Cat.position.y > 0) this.p1Cat.position.y = Math.max(0, this.p1Cat.position.y - 0.08);
-            } else if (!p1Trapped && !this.p1LeapState) {
-                this.p1Cat.position.y = 0;
-                this.p1Cat.rotation.z = 0;
-                let p1X = 0, p1Z = 0;
-                if (this.keyState['KeyW']) p1Z -= 1;
-                if (this.keyState['KeyS']) p1Z += 1;
-                if (this.keyState['KeyA']) p1X -= 1;
-                if (this.keyState['KeyD']) p1X += 1;
+            // Player 1 Movement
+            if (this.myPlayerNum === 1 || !this.conn) {
+                if (p1IsStunned) {
+                    this.p1Cat.rotation.y += 0.35;
+                    if (this.p1Cat.position.y > 0) this.p1Cat.position.y = Math.max(0, this.p1Cat.position.y - 0.08);
+                } else if (!p1Trapped && !this.p1LeapState) {
+                    this.p1Cat.position.y = 0;
+                    this.p1Cat.rotation.z = 0;
+                    let p1X = 0, p1Z = 0;
+                    if (this.keyState['KeyW']) p1Z -= 1;
+                    if (this.keyState['KeyS']) p1Z += 1;
+                    if (this.keyState['KeyA']) p1X -= 1;
+                    if (this.keyState['KeyD']) p1X += 1;
 
-                if (p1X !== 0 || p1Z !== 0) {
-                    this.p1Cat.position.x += p1X * p1Speed;
-                    this.p1Cat.position.z += p1Z * p1Speed;
-                    this.p1Cat.rotation.y = Math.atan2(p1X, p1Z) + Math.PI;
-                    if (this.p1Cat.userData.tail) this.p1Cat.userData.tail.rotation.z = Math.sin(time * 3) * 0.3;
+                    if (p1X !== 0 || p1Z !== 0) {
+                        this.p1Cat.position.x += p1X * p1Speed;
+                        this.p1Cat.position.z += p1Z * p1Speed;
+                        this.p1Cat.rotation.y = Math.atan2(p1X, p1Z) + Math.PI;
+                        if (this.p1Cat.userData.tail) this.p1Cat.userData.tail.rotation.z = Math.sin(time * 3) * 0.3;
+                    }
                 }
             }
             this.p1Cat.position.x = Math.max(-17, Math.min(17, this.p1Cat.position.x));
             this.p1Cat.position.z = Math.max(-11, Math.min(11, this.p1Cat.position.z));
 
-            // --- Player 2 Movement & Stun Handling ---
-            if (p2IsStunned) {
-                this.p2Cat.rotation.y += 0.35;
-                if (this.p2Cat.position.y > 0) this.p2Cat.position.y = Math.max(0, this.p2Cat.position.y - 0.08);
-            } else if (!p2Trapped && !this.p2LeapState) {
-                this.p2Cat.position.y = 0;
-                this.p2Cat.rotation.z = 0;
-                let p2X = 0, p2Z = 0;
-                if (this.keyState['ArrowUp']) p2Z -= 1;
-                if (this.keyState['ArrowDown']) p2Z += 1;
-                if (this.keyState['ArrowLeft']) p2X -= 1;
-                if (this.keyState['ArrowRight']) p2X += 1;
+            // Player 2 Movement
+            if (this.myPlayerNum === 2 || !this.conn) {
+                if (p2IsStunned) {
+                    this.p2Cat.rotation.y += 0.35;
+                    if (this.p2Cat.position.y > 0) this.p2Cat.position.y = Math.max(0, this.p2Cat.position.y - 0.08);
+                } else if (!p2Trapped && !this.p2LeapState) {
+                    this.p2Cat.position.y = 0;
+                    this.p2Cat.rotation.z = 0;
+                    let p2X = 0, p2Z = 0;
+                    if (this.keyState['ArrowUp']) p2Z -= 1;
+                    if (this.keyState['ArrowDown']) p2Z += 1;
+                    if (this.keyState['ArrowLeft']) p2X -= 1;
+                    if (this.keyState['ArrowRight']) p2X += 1;
 
-                if (p2X !== 0 || p2Z !== 0) {
-                    this.p2Cat.position.x += p2X * p2Speed;
-                    this.p2Cat.position.z += p2Z * p2Speed;
-                    this.p2Cat.rotation.y = Math.atan2(p2X, p2Z) + Math.PI;
-                    if (this.p2Cat.userData.tail) this.p2Cat.userData.tail.rotation.z = Math.sin(time * 3) * 0.3;
+                    if (p2X !== 0 || p2Z !== 0) {
+                        this.p2Cat.position.x += p2X * p2Speed;
+                        this.p2Cat.position.z += p2Z * p2Speed;
+                        this.p2Cat.rotation.y = Math.atan2(p2X, p2Z) + Math.PI;
+                        if (this.p2Cat.userData.tail) this.p2Cat.userData.tail.rotation.z = Math.sin(time * 3) * 0.3;
+                    }
                 }
             }
             this.p2Cat.position.x = Math.max(-17, Math.min(17, this.p2Cat.position.x));
             this.p2Cat.position.z = Math.max(-11, Math.min(11, this.p2Cat.position.z));
 
-            // --- Collecting Ground Power-Ups ---
+            // Power-Ups Collision
             this.powerupsOnGround.forEach((box, index) => {
                 box.rotation.y += box.userData.rotationSpeed;
 
@@ -1101,9 +1096,8 @@ handleNetworkData(data) {
                 }
             });
 
-            // --- AI Mice Wandering & Mouse Magnet ---
+            // Mice AI & Magnet Powerup
             this.mice.forEach((mouse) => {
-                // Mouse Magnet Power-Up Effect
                 if (this.p1Powerup && this.p1Powerup.type === 'MAGNET' && this.p1Cat.position.distanceTo(mouse.position) < 8.0) {
                     mouse.position.lerp(this.p1Cat.position, 0.035);
                 } else if (this.p2Powerup && this.p2Powerup.type === 'MAGNET' && this.p2Cat.position.distanceTo(mouse.position) < 8.0) {
@@ -1131,7 +1125,7 @@ handleNetworkData(data) {
                     this.audio.playCuteMeow();
 
                     if (this.p1Score >= this.WIN_TARGET) {
-                        this.triggerWin("Orange Cat (Player 1)", "#ff9800");
+                        this.triggerWin("Orange Cat (P1)", "#ff9800");
                     }
                 }
 
@@ -1144,7 +1138,7 @@ handleNetworkData(data) {
                     this.audio.playCuteMeow();
 
                     if (this.p2Score >= this.WIN_TARGET) {
-                        this.triggerWin("Tabby Cat (Player 2)", "#8d6e63");
+                        this.triggerWin("Tabby Cat (P2)", "#8d6e63");
                     }
                 }
             });
@@ -1154,7 +1148,24 @@ handleNetworkData(data) {
     }
 
     window.addEventListener('DOMContentLoaded', () => {
-        window.game = new LocalMultiplayerCatGame();
+        window.game = new OnlineCatGame();
+
+        const btnHost = document.getElementById('btn-host');
+        const btnJoin = document.getElementById('btn-join');
+
+        if (btnHost) {
+            btnHost.addEventListener('click', () => {
+                window.game.audio.init();
+                window.game.hostGame();
+            });
+        }
+
+        if (btnJoin) {
+            btnJoin.addEventListener('click', () => {
+                window.game.audio.init();
+                window.game.joinGame();
+            });
+        }
     });
     </script>
 </body>
